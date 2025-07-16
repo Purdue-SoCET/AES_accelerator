@@ -25,7 +25,7 @@ class Cipher(keySize: Int) extends Module {
     val Nr = getNr(keySize)
 
     // Initialize modules
-    val keyExpansion = Module(new keyExpansion())
+    val keyExpansion = Module(new KeyExpansion())
     val initialAddRoundKey = Module(new AddRoundKey())
     val roundUnitVec = VecInit(Seq.fill(Nr - 1)(new Module(RoundUnit())))
     val lastSubByte = Module(new SubByte())
@@ -36,6 +36,7 @@ class Cipher(keySize: Int) extends Module {
     val pipeline = withReset(~io.Input.nRST) {
         RegInit(VecInit(Seq.fill(Nr + 1)(VecInit(Seq.fill(4)(VecInit(Seq.fill(4)(0.U(8.W))))))))
     }
+    // Valid register is to track whether output is valid
     val valid = withReset(~io.Input.nRST) {
         RegInit(VecInit(Seq.fill(Nr + 1)(0.U(1.W))))
     }
