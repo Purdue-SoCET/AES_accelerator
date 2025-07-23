@@ -25,7 +25,7 @@ class Decipher(keySize: Int) extends Module {
     val Nr = getNr(keySize)
 
     // Initialize modules
-    val keyExpansion = Module(new keyExpansion())
+    val keyExpansion = Module(new KeyExpansion())
     val initialAddRoundKey = Module(new AddRoundKey())
     val invRoundUnitVec = VecInit(Seq.fill(Nr - 1)(new Module(InvRoundUnit())))
     val lastInvSubByte = Module(new SubByte())
