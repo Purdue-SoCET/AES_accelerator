@@ -30,16 +30,20 @@ class CipherSpec extends AnyFreeSpec with ChiselSim {
         new String(decryptedBytes, "UTF-8")
     }
 
+    def reset(dut: Cipher): Unit = {
+        dut.reset.poke(true.B)
+        dut.clock.step()
+        dut.reset.poke(false.B) 
+        dut.clock.step()
+    }   
+
     "Cipher should return AES-128 ciphered text" in {
         simulate(new Cipher(128)) { dut =>
             // Key and text needs to be 128 bits, 16 words
             val text    = "SOCET2025SUMMER!"
             val key     = "1234567891011123"
 
-            dut.reset.poke(true.B)
-            dut.clock.step()
-            dut.reset.poke(false.B)
-            dut.clock.step()
+            reset(dut)
 
             // Feed input
             dut.input.in.poke(text.U(128.W))
@@ -56,7 +60,6 @@ class CipherSpec extends AnyFreeSpec with ChiselSim {
             dut.clock.step(7)
 
             // Expected result
-            // TODO - fill this field
             val expectedText = encrypt(text, key)
             dut.io.done.peek(true.B)
             dut.io.out.peek(expectedText)
@@ -90,7 +93,6 @@ class CipherSpec extends AnyFreeSpec with ChiselSim {
             dut.clock.step(7)
 
             // Expected result
-            // TODO - fill this field
             dut.io.done.peek(true.B)
             dut.io.out.peek(expectedText)
         }

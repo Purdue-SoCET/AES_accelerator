@@ -1,4 +1,4 @@
-package aes
+package AES
 
 import chisel3._
 
@@ -27,16 +27,16 @@ class Decipher(keySize: Int) extends Module {
     // Initialize modules
     val keyExpansion = Module(new KeyExpansion())
     val initialAddRoundKey = Module(new AddRoundKey())
-    val invRoundUnitVec = VecInit(Seq.fill(Nr - 1)(new Module(InvRoundUnit())))
+    val invRoundUnitVec = VecInit(Seq.fill(Nr - 1)(new InvRoundUnit()))
     val lastInvSubByte = Module(new SubByte())
     val lastInvShiftRows = Module(new ShiftRows())
     val lastAddRoundKey = Module(new AddRoundKey())
 
     // Initialize pipeline reigsters
-    val pipeline = withReset(~io.Input.nRST) {
+    val pipeline = withReset(~io.nRST) {
         RegInit(VecInit(Seq.fill(Nr + 1)(VecInit(Seq.fill(4)(VecInit(Seq.fill(4)(0.U(8.W))))))))
     }
-    val valid = withReset(~io.Input.nRST) {
+    val valid = withReset(~io.nRST) {
         RegInit(VecInit(Seq.fill(Nr + 1)(0.U(1.W))))
     }
 
