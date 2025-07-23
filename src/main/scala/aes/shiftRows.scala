@@ -3,7 +3,7 @@ package aes
 import chisel3._
 import chisel3.util._
 
-class ParamShiftRows(val N: Int = 4) extends Module {
+class shiftRows(val N: Int = 4) extends Module {
   val io = IO(new Bundle {
     val in  = Input(Vec(N, Vec(N, UInt(8.W)))) // State matrix: [col][row]
     val out = Output(Vec(N, Vec(N, UInt(8.W))))
@@ -12,7 +12,7 @@ class ParamShiftRows(val N: Int = 4) extends Module {
   // Perform cyclic left shift on each row by its row index
   for (row <- 0 until N) {
     for (col <- 0 until N) {
-      io.out(col)(row) := io.in((col + row) % N)(row)
+      io.out(col)(row) := io.in(col)((row + col) % N)
     }
   }
 }
