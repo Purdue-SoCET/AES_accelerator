@@ -1,92 +1,128 @@
-// package aes
+package aes
 
-// import chisel3._
-// import chisel3.util._
+import chisel3._
+import chisel3.util._
 
-// /** KeyExpansion module for AES that handles 128/192/256-bit keys */
-// class KeyExpansion(keySize: Int) extends Module {
-//   require(Seq(128, 192, 256).contains(keySize), "Invalid key size")
-//   val io = IO(new Bundle {
-//   val keyIn = Flipped(Decoupled(UInt(keySize.W)))   // Input key: 128, 192, or 256 bits
-//   val roundKeyOut = Decoupled(UInt(128.W))          // Stream of round keys (128-bit chunks)
-//   val done        = Output(Bool())                  // Optional: high when last round key is done
-// })
-//   //Instances of GFunction and Sbox
-//   val gFunc = Module(new GFunction)
-//   val sbox0 = Module(new SBox)
-//   val sbox1 = Module(new SBox)
-//   val sbox2 = Module(new SBox)
-//   val sbox3 = Module(new SBox)
+/** KeyExpansion module for AES that handles 128/192/256-bit keys */
 
-//   def subWordOnly(word: UInt): UInt = {
-//     sbox0.io.in := word(31, 24)
-//     sbox1.io.in := word(23, 16)
-//     sbox2.io.in := word(15, 8)
-//     sbox3.io.in := word(7, 0)
-//     Cat(sbox0.io.out, sbox1.io.out, sbox2.io.out, sbox3.io.out)
-//   }
+class KeyExpansion(keySize: Int) extends Module {
+  require(Seq(128, 192, 256).contains(keySize), "Invalid key size")
+  val io = IO(new Bundle {
 
-//   val wordCount = keySize / 32 // number of 32-bit words in the input key
+  val keyIn       = Flipped(Decoupled(UInt(keySize.W)))             // Input key: 128, 192, or 256 bits
+  val roundKeyOut = Decoupled(UInt(128.W))                          // Stream of round keys (128-bit chunks)
+  val done        = Output(Bool())                                  // Optional: high when last round key is done
 
-//   val Nr = keySize match {      //match the keysize to the round
-//     case 128 => 10
-//     case 192 => 12
-//     case 256 => 14
-//     case _   => throw new IllegalArgumentException("Invalid key size")
-//   }
+})
+    // =-=-= Get Vals =-=-= 
 
-//   val totalRoundKeys = 4 * (Nr + 1) // Total amount of round keys
+      val Nr = keySize match {                                       // Match the keysize to the round
+        case 128 => 10
+        case 192 => 12
+        case 256 => 14
+        case _   => throw new IllegalArgumentException("Invalid key size")
+      }
+      val wordCount = keySize / 32                                     // number of 32-bit words in the input key
+      val totalRoundKeys = 4 * (Nr + 1)                                // Total amount of round keys
+      val totalStages = Nr + 1
 
-//   val words = Reg(Vec(totalRoundKeys, UInt(32.W))) // splits intial key into vector (32 bit per element) 
-//   val loaded = RegInit(false.B)                // Flag: have we accepted the input key?   
+    // =-=-= Init Regs =-=-= 
+      val stageRegs = Reg(Vec(Nr + 1, UInt(128.W)))                     //  Holds each round key as it flows through pipeline
+      val validRegs = RegInit(VecInit(Seq.fill(Nr + 1)(false.B)))      //  Tracks which stages hold valid data
+      // val roundCounter = RegInit(0.U(log2Ceil(Nr + 2).W))           //  Holds initial input key
+      // val keyInReg = Reg(UInt(keySize.W))                           //  Tracks how many keys emitted (optional)
+      // val wPrev = Reg(Vec(4, UInt(32.W)))                           //  Tracks last 4 words for key generation
+    
+    // =-=-= Load Register 
+      when(io.keyIn.fire) {
+        stageRegs(0) := io.keyIn.bits
+        validRegs(0) := true.B
+      }
 
-//   when(io.keyIn.fire && !loaded) {
-//   for (j <- 0 until wordCount) {
-//     words(j) := io.keyIn.bits((keySize - 1 - j * 32), keySize - (j + 1) * 32)
-//   }
-//     loaded := true.B
-//   }
+      io.keyIn.ready := !validRegs(0)                                 // Accept new input only if pipeline is empty
 
-//   val i = RegInit(wordCount.U(log2Ceil(totalRoundKeys).W)) // starts after initial key
-//   val roundIndex = RegInit(0.U(log2Ceil(Nr + 2).W)) // to count 0 to Nr
-//   val outputValid = RegInit(false.B)  
+    // === Key Generator Pipeline ===
+      for (i <- 1 until totalStages) {
+        val keyGen = Module(new KeyGenerator(keySize))
+        keyGen.io.prevKey := stageRegs(i - 1)           // Intial or prev key
+        keyGen.io.round   := i.U                        // round number input
 
-//   when(loaded && i < totalRoundKeys.U) {
-//     val prev   = words(i - 1.U)   //w3-128,w5-192,w7-256
-//     val prevNk = words(i - wordCount.U)//w0-128,w0-192,w0-256
+        stageRegs(i) := keyGen.io.nextKey               // Output connected to stage reg (KEYGEN FUNCT)
+        validRegs(i) := validRegs(i - 1)                // New reg gets loaded (valid)
 
-//     val temp = Wire(UInt(32.W))
+        // io.roundKeyOut := stageRegs(i)                  // Output RoundKey  (KEYEXPANSION FUCNT)
+        // valid(i-1) := false.B                           // Empty the Register
+      }
 
-//     when(i % wordCount.U === 0.U) {
-//       gFunc.io.in := prev
-//       gFunc.io.round := (i / wordCount.U)(3,0)  //Gfunction case
-//       temp := gFunc.io.out
-//     }.elsewhen(wordCount.U > 6.U && i % wordCount.U === 4.U) {
-//       temp := subWordOnly(prev)  //Sbox case
-//     }.otherwise {
-//       temp := prev
-//     }
+    // === Output Logic: Emit any available key ===
+      val outputVec = VecInit(stageRegs)
+      val validVec  = VecInit(validRegs)
 
-//     words(i) := prevNk ^ temp // ACTUAL OPERATION
-//     i := i + 1.U
+      io.roundKeyOut.valid := validVec.reduce(_ || _)
+      io.roundKeyOut.bits  := Mux1H(validVec, outputVec)
 
-//     when(loaded && i >= ((roundIndex + 1.U) * 4.U)) {
-//       io.roundKeyOut.valid := true.B
-//       io.roundKeyOut.bits := Cat(
-//         words(roundIndex * 4.U + 0.U),
-//         words(roundIndex * 4.U + 1.U),
-//         words(roundIndex * 4.U + 2.U),
-//         words(roundIndex * 4.U + 3.U)
-//       )
+    // === Clear stage after emission ===
+      when(io.roundKeyOut.fire) {
+        for (i <- 0 until totalStages) {
+          when(validRegs(i) && outputVec(i) === io.roundKeyOut.bits) {
+            validRegs(i) := false.B
+          }
+        }
+      }
 
-//       when(io.roundKeyOut.ready) {
-//         roundIndex := roundIndex + 1.U
-//       }
-//     }.otherwise {
-//       io.roundKeyOut.valid := false.B
-//       io.roundKeyOut.bits := 0.U
-//     }
-//   }
-  
-//   io.done := roundIndex === (Nr + 1).U
-// }
+  io.done := validRegs(Nr)
+}
+
+  // Key Generator Helper function
+  class KeyGenerator(val keySize: Int) extends Module {
+  require(Seq(128, 192, 256).contains(keySize), "Invalid AES key size")
+  val io = IO(new Bundle {
+    val prevKey = Input(UInt((keySize max 128).W))
+    val round   = Input(UInt(4.W))
+    val nextKey = Output(UInt(128.W)) // Only output one 128-bit round key per stage
+  })
+
+  val Nk = keySize / 32
+  val prevWords = Wire(Vec(Nk, UInt(32.W)))
+  for (i <- 0 until Nk) {
+    prevWords(i) := io.prevKey((Nk - 1 - i) * 32 + 31, (Nk - 1 - i) * 32)
+  }
+
+  // =-=-= Modules Instantiations =-=-= 
+  val gFunc = Module(new GFunction)               // for calculating w[] 
+  gFunc.io.in := prevWords(Nk - 1)                // input w3 to the input of Gfunction
+  gFunc.io.round := io.round                      // input round to specify the round constant 
+
+  // =-=-=  New Word Vector =-=-= 
+  val newWords = Wire(Vec(4, UInt(32.W)))
+
+  // =-=-=  Filling New Word Vector =-=-=
+  if (keySize == 128) {
+    newWords(0) := prevWords(0) ^ gFunc.io.out
+    newWords(1) := prevWords(1) ^ newWords(0)
+    newWords(2) := prevWords(2) ^ newWords(1)
+    newWords(3) := prevWords(3) ^ newWords(2)
+  } else if (keySize == 192) {
+    val temp = Wire(Vec(6, UInt(32.W)))
+    for (i <- 0 until 6) temp(i) := prevWords(i)
+    newWords(0) := temp(0) ^ gFunc.io.out
+    newWords(1) := temp(1) ^ newWords(0)
+    newWords(2) := temp(2) ^ newWords(1)
+    newWords(3) := temp(3) ^ newWords(2)
+  } else if (keySize == 256) {
+    val temp = Wire(Vec(8, UInt(32.W)))
+    for (i <- 0 until 8) temp(i) := prevWords(i)
+    val subWord = Module(new SubWord)
+    subWord.io.in := temp(3)
+
+    val word4 = Wire(UInt(32.W))
+    word4 := Mux(io.round % 2.U === 0.U, gFunc.io.out, subWord.io.out)
+
+    newWords(0) := temp(0) ^ word4
+    newWords(1) := temp(1) ^ newWords(0)
+    newWords(2) := temp(2) ^ newWords(1)
+    newWords(3) := temp(3) ^ newWords(2)
+  }
+
+  io.nextKey := Cat(newWords(0), newWords(1), newWords(2), newWords(3))
+}
