@@ -103,12 +103,26 @@ class KeyExpansion(keySize: Int) extends Module {
     newWords(2) := prevWords(2) ^ newWords(1)
     newWords(3) := prevWords(3) ^ newWords(2)
   } else if (keySize == 192) {
+
+//     if i mod 6 == 0:
+//     w[i] = w[i-6] ^ SubWord(RotWord(w[i-1])) ^ Rcon[i/6]
+// else if i mod 6 == 4:
+//     w[i] = w[i-6] ^ SubWord(w[i-1])
+// else:
+//     w[i] = w[i-6] ^ w[i-1]
     val temp = Wire(Vec(6, UInt(32.W)))
-    for (i <- 0 until 6) temp(i) := prevWords(i)
-    newWords(0) := temp(0) ^ gFunc.io.out
-    newWords(1) := temp(1) ^ newWords(0)
-    newWords(2) := temp(2) ^ newWords(1)
-    newWords(3) := temp(3) ^ newWords(2)
+    for (i <- 0 until 6){
+      if( i % 6 == 0){
+        newWords(0) := temp(0) ^ gFunc.io.out
+      }else if( )
+
+    } 
+    // temp(i) := prevWords(i)
+    // newWords(0) := temp(0) ^ gFunc.io.out
+    // newWords(1) := temp(1) ^ newWords(0)
+    // newWords(2) := temp(2) ^ newWords(1)
+    // newWords(3) := temp(3) ^ newWords(2)
+
   } else if (keySize == 256) {
     val temp = Wire(Vec(8, UInt(32.W)))
     for (i <- 0 until 8) temp(i) := prevWords(i)
