@@ -123,18 +123,23 @@ class KeyExpansion(keySize: Int) extends Module {
     newWords(2) := temp(2) ^ newWords(1)
     newWords(3) := temp(3) ^ newWords(2)
   } else if (keySize == 256) {
+
+  val useGFunc = (io.round % 8.U === 1.U)
+
   val temp = Wire(Vec(8, UInt(32.W)))
   for (i <- 0 until 8) temp(i) := prevWords(i)
-
-  // Determine condition based on round number
-  val useGFunc = (io.round % 2.U === 0.U)
-  val useSubWord = (io.round % 2.U === 1.U) // i % 8 == 4 happens every second round
 
   val subWord = Module(new SBox)
   subWord.io.in := temp(7)
 
-  val word4 = Wire(UInt(32.W))
-  word4 := Mux(useGFunc, gFunc.io.out, subWord.io.out)
+  val gFunc = Module(new GFunction)
+  gFunc.io.round := io.round
+  gFunc.io.in := 0.U  // prevent garbage
+  when (useGFunc) {
+    gFunc.io.in := temp(7)
+  }
+  
+  val word4 = Mux(useGFunc, gFunc.io.out, subWord.io.out)
 
   newWords(0) := temp(0) ^ word4
   newWords(1) := temp(1) ^ newWords(0)
