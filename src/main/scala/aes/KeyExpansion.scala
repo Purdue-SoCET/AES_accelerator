@@ -5,23 +5,23 @@ import chisel3.util._
 
 /** KeyExpansion module for AES that handles 128/192/256-bit keys */
 
-class KeyExpansion(keySize: Int) extends Module {
+class KeyExpansion(keySize: Int, Nr: Int ) extends Module {
   require(Seq(128, 192, 256).contains(keySize), "Invalid key size")
   val io = IO(new Bundle {
 
   val keyIn       = Flipped(Decoupled(UInt(keySize.W)))             // Input key: 128, 192, or 256 bits
-  val roundKeyOut = Decoupled(UInt(128.W))                          // Stream of round keys (128-bit chunks)
+  val roundKeyOut = Decoupled(UInt((128).W))                          // Stream of round keys (128-bit chunks)
   val done        = Output(Bool())                                  // Optional: high when last round key is done
 
 })
     // =-=-= Get Vals =-=-= 
 
-      val Nr = keySize match {                                       // Match the keysize to the round
-        case 128 => 10
-        case 192 => 12
-        case 256 => 14
-        case _   => throw new IllegalArgumentException("Invalid key size")
-      }
+//      val Nr = keySize match {                                       // Match the keysize to the round
+//        case 128 => 10
+//        case 192 => 12
+//        case 256 => 14
+//        case _   => throw new IllegalArgumentException("Invalid key size")
+//      }
       val wordCount = keySize / 32                                     // number of 32-bit words in the input key
       val totalStages = Nr + 1
       // val totalRoundKeys = 4 * (Nr + 1)                                // Total amount of round keys
