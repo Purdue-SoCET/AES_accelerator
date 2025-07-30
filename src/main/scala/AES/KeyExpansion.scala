@@ -23,17 +23,24 @@ class KeyExpansion(keySize: Int) extends Module {
         case _   => throw new IllegalArgumentException("Invalid key size")
       }
       val wordCount = keySize / 32                                     // number of 32-bit words in the input key
-      val totalRoundKeys = 4 * (Nr + 1)                                // Total amount of round keys
       val totalStages = Nr + 1
+      // val totalRoundKeys = 4 * (Nr + 1)                                // Total amount of round keys
+      val totalWords = 4 * (totalStages)
+      
 
     // =-=-= Init Regs =-=-= 
-      val stageRegs = Reg(Vec(Nr + 1, UInt(128.W)))                     //  Holds each round key as it flows through pipeline
+      val stageRegs = Reg(Vec(Nr + 1, UInt(keySize max 128.W)))        //  Holds each round key as it flows through pipeline
       val validRegs = RegInit(VecInit(Seq.fill(Nr + 1)(false.B)))      //  Tracks which stages hold valid data
       // val roundCounter = RegInit(0.U(log2Ceil(Nr + 2).W))           //  Holds initial input key
       // val keyInReg = Reg(UInt(keySize.W))                           //  Tracks how many keys emitted (optional)
       // val wPrev = Reg(Vec(4, UInt(32.W)))                           //  Tracks last 4 words for key generation
     
-    // =-=-= Load Register 
+    /** =-=-= Load Register =-=-= 
+      keyIn.valid : Bool        // asserts when input data is valid
+      keyIn.ready : Bool        // asserts when receiver is ready
+      keyIn.bits  : UInt(128.W)  //the actual payload (your key)
+    */
+
       when(io.keyIn.fire) {
         stageRegs(0) := io.keyIn.bits
         validRegs(0) := true.B
@@ -55,8 +62,12 @@ class KeyExpansion(keySize: Int) extends Module {
       }
 
     // === Output Logic: Emit any available key ===
-      val outputVec = VecInit(stageRegs)
-      val validVec  = VecInit(validRegs)
+      // val outputVec = VecInit(stageRegs)
+      // val validVec  = VecInit(validRegs)
+      // val outputVec = VecInit(stageRegs.toSeq)
+      // val validVec  = VecInit(validRegs.toSeq)
+      val outputVec = VecInit(stageRegs.toSeq.map(x => x))
+      val validVec  = VecInit(validRegs.toSeq.map(x => x))
 
       io.roundKeyOut.valid := validVec.reduce(_ || _)
       io.roundKeyOut.bits  := Mux1H(validVec, outputVec)
@@ -85,7 +96,9 @@ class KeyExpansion(keySize: Int) extends Module {
   val Nk = keySize / 32
   val prevWords = Wire(Vec(Nk, UInt(32.W)))
   for (i <- 0 until Nk) {
-    prevWords(i) := io.prevKey((Nk - 1 - i) * 32 + 31, (Nk - 1 - i) * 32)
+    val hi = keySize - 1 - (i * 32)
+    val lo = keySize - 32 - (i * 32)
+    prevWords(i) := io.prevKey(hi, lo)
   }
 
   // =-=-= Modules Instantiations =-=-= 
@@ -103,40 +116,33 @@ class KeyExpansion(keySize: Int) extends Module {
     newWords(2) := prevWords(2) ^ newWords(1)
     newWords(3) := prevWords(3) ^ newWords(2)
   } else if (keySize == 192) {
-
-//     if i mod 6 == 0:
-//     w[i] = w[i-6] ^ SubWord(RotWord(w[i-1])) ^ Rcon[i/6]
-// else if i mod 6 == 4:
-//     w[i] = w[i-6] ^ SubWord(w[i-1])
-// else:
-//     w[i] = w[i-6] ^ w[i-1]
     val temp = Wire(Vec(6, UInt(32.W)))
-    for (i <- 0 until 6){
-      if( i % 6 == 0){
-        newWords(0) := temp(0) ^ gFunc.io.out
-      }else if( )
-
-    } 
-    // temp(i) := prevWords(i)
-    // newWords(0) := temp(0) ^ gFunc.io.out
-    // newWords(1) := temp(1) ^ newWords(0)
-    // newWords(2) := temp(2) ^ newWords(1)
-    // newWords(3) := temp(3) ^ newWords(2)
-
-  } else if (keySize == 256) {
-    val temp = Wire(Vec(8, UInt(32.W)))
-    for (i <- 0 until 8) temp(i) := prevWords(i)
-    val subWord = Module(new SubWord)
-    subWord.io.in := temp(3)
-
-    val word4 = Wire(UInt(32.W))
-    word4 := Mux(io.round % 2.U === 0.U, gFunc.io.out, subWord.io.out)
-
-    newWords(0) := temp(0) ^ word4
+    for (i <- 0 until 6) temp(i) := prevWords(i)
+    newWords(0) := temp(0) ^ gFunc.io.out
     newWords(1) := temp(1) ^ newWords(0)
     newWords(2) := temp(2) ^ newWords(1)
     newWords(3) := temp(3) ^ newWords(2)
-  }
+  } else if (keySize == 256) {
+  val temp = Wire(Vec(8, UInt(32.W)))
+  for (i <- 0 until 8) temp(i) := prevWords(i)
+
+  // Determine condition based on round number
+  val useGFunc = (io.round % 2.U === 0.U)
+  val useSubWord = (io.round % 2.U === 1.U) // i % 8 == 4 happens every second round
+
+  val subWord = Module(new SBox)
+  subWord.io.in := temp(7)
+
+  val word4 = Wire(UInt(32.W))
+  word4 := Mux(useGFunc, gFunc.io.out, subWord.io.out)
+
+  newWords(0) := temp(0) ^ word4
+  newWords(1) := temp(1) ^ newWords(0)
+  newWords(2) := temp(2) ^ newWords(1)
+  newWords(3) := temp(3) ^ newWords(2)
+}
 
   io.nextKey := Cat(newWords(0), newWords(1), newWords(2), newWords(3))
 }
+
+
