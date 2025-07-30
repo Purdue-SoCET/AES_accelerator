@@ -56,8 +56,8 @@ class CipherSpec extends AnyFreeSpec with ChiselSim {
             // Stop loading
             dut.input.load.poke(false.B)
 
-            // Take 7 steps
-            dut.clock.step(7)
+            // Take 9 steps
+            dut.clock.step(9)
 
             // Expected result
             val expectedText = encrypt(text, key)

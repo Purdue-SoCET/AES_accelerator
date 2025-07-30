@@ -15,7 +15,7 @@ class RoundUnit() extends Module {
     
     val subByte         = Module(new SubByte())
     val shiftRows       = Module(new ShiftRows())
-    val mixColumns      = Module(new mixColumns())
+    val mixColumns      = Module(new MixColumns())
     val addRoundKey     = Module(new AddRoundKey())
 
     subByte.io.in       := io.in

@@ -3,7 +3,7 @@ package aes
 import chisel3._
 import chisel3.util._
 
-class mixColumns(val NumCols: Int = 4) extends Module {
+class MixColumns(val NumCols: Int = 4) extends Module {
   val io = IO(new Bundle {
     val in  = Input(Vec(NumCols, UInt(32.W)))  // each column = 4 bytes
     val out = Output(Vec(NumCols, UInt(32.W))) // transformed columns

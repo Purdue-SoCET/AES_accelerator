@@ -5,9 +5,9 @@ import chisel3.simulator.ChiselSim
 import chisel3.experimental.BundleLiterals._
 import org.scalatest.freespec.AnyFreeSpec
 
-class ParamMixColumnsSpec extends AnyFreeSpec with ChiselSim{
+class MixColumnsSpec extends AnyFreeSpec with ChiselSim{
   "ParamMixColumns should transform column correctly for AES-128" in {
-    simulate(new ParamMixColumns(1)) { dut =>
+    simulate(new MixColumns(1)) { dut =>
       // Input column: 0x305dbfd4 (d4 bf 5d 30), LSB = top byte
       dut.io.in(0).poke("h305dbfd4".U)
 
@@ -19,7 +19,7 @@ class ParamMixColumnsSpec extends AnyFreeSpec with ChiselSim{
   }
 
   "ParamMixColumns should transform 4 independent columns" in {
-    simulate(new ParamMixColumns(4)) { dut =>
+    simulate(new MixColumns(4)) { dut =>
       // Set 4 columns: test only first, rest zeros
       dut.io.in(0).poke("h305dbfd4".U)
       dut.io.in(1).poke(0.U)

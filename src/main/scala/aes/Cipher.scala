@@ -25,7 +25,7 @@ class Cipher(keySize: Int) extends Module {
     val Nr = getNr(keySize)
 
     // Initialize modules
-    val keyExpansion = Module(new KeyExpansion())
+    val keyExpansion = Module(new KeyExpansion(keySize))
     val initialAddRoundKey = Module(new AddRoundKey())
     val roundUnitVec = VecInit(Seq.fill(Nr - 1)(new RoundUnit()))
     val lastSubByte = Module(new SubByte())
