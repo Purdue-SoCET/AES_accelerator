@@ -16,13 +16,13 @@ object GF {
 
 class InvMixColumns extends Module {
   val io = IO(new Bundle {
-    val w_i    = Input(UInt(32.W))
-    val mixw_o = Output(UInt(32.W))
+    val in    = Input(UInt(32.W))
+    val out = Output(UInt(32.W))
   })
 
   val bytes = Wire(Vec(4, UInt(8.W)))
   for (i <- 0 until 4) {
-    bytes(i) := io.w_i((i + 1) * 8 - 1, i * 8)
+    bytes(i) := io.in((i + 1) * 8 - 1, i * 8)
   }
 
   val mb = Wire(Vec(4, UInt(8.W)))
@@ -31,5 +31,5 @@ class InvMixColumns extends Module {
   mb(2) := GF.gm13(bytes(0)) ^ GF.gm09(bytes(1)) ^ GF.gm14(bytes(2)) ^ GF.gm11(bytes(3))
   mb(3) := GF.gm11(bytes(0)) ^ GF.gm13(bytes(1)) ^ GF.gm09(bytes(2)) ^ GF.gm14(bytes(3))
 
-  io.mixw_o := Cat(mb.reverse) // MSB first
+  io.out := Cat(mb.reverse) // MSB first
 }

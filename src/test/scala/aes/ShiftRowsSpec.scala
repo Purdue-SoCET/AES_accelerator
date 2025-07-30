@@ -6,11 +6,11 @@ import org.scalatest.freespec.AnyFreeSpec
 
 class shiftRowsSpec extends AnyFreeSpec with ChiselSim {
     
-    "Mix Rows mixed" in {
-        simulate(new mixColumns(4)) { dut =>
+    "Shift Row should shift rows" in {
+        simulate(new ShiftRows(4)) { dut =>
             // Key and text needs to be 128 bits, 16 words
             val input = Seq(Seq(1,2,3,4), Seq(5,6,7,8), Seq(9,10,11,12), Seq(13,14,15,16))
-            val expected = Seq(Seq(39,46,53,60), Seq(51,58,65,72), Seq(63,70,77,84), Seq(43,50,57,64))
+            val expected = Seq(Seq(1,2,3,4), Seq(6,7,8,5), Seq(11,12,9,10), Seq(16,13,14,15))
 
 
             // Feed input
