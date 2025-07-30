@@ -1,12 +1,12 @@
-package AES
+package aes
 
 import chisel3._
 
 /*
- * Pipelined AES cipher accelerator
+ * Pipelined AES decipher accelerator
  */
 
-class Cipher(keySize: Int) extends Module {
+class Decipher(keySize: Int) extends Module {
     val io = IO(new Bundle {
         val nRST            = Input(Bool())
         val in              = Input(Bits(128.W))
@@ -27,16 +27,15 @@ class Cipher(keySize: Int) extends Module {
     // Initialize modules
     val keyExpansion = Module(new KeyExpansion())
     val initialAddRoundKey = Module(new AddRoundKey())
-    val roundUnitVec = VecInit(Seq.fill(Nr - 1)(new RoundUnit()))
-    val lastSubByte = Module(new SubByte())
-    val lastShiftRows = Module(new ShiftRows())
+    val invRoundUnitVec = VecInit(Seq.fill(Nr - 1)(new InvRoundUnit()))
+    val lastInvSubByte = Module(new SubByte())
+    val lastInvShiftRows = Module(new ShiftRows())
     val lastAddRoundKey = Module(new AddRoundKey())
 
     // Initialize pipeline reigsters
     val pipeline = withReset(~io.nRST) {
         RegInit(VecInit(Seq.fill(Nr + 1)(VecInit(Seq.fill(4)(VecInit(Seq.fill(4)(0.U(8.W))))))))
     }
-    // Valid register is to track whether output is valid
     val valid = withReset(~io.nRST) {
         RegInit(VecInit(Seq.fill(Nr + 1)(0.U(1.W))))
     }
@@ -57,8 +56,8 @@ class Cipher(keySize: Int) extends Module {
     valid(0)    := io.load
 
     for(i <- 0 until Nr - 1) {
-        roundUnitVec(i).io.in   := pipeline(i)
-        pipeline(i + 1)         := roundUnitVec(i).io.out
+        invRoundUnitVec(i).io.in   := pipeline(i)
+        pipeline(i + 1)            := invRoundUnitVec(i).io.out
         // TODO - Input roundKey to RoundUnit
     }
 
@@ -66,9 +65,9 @@ class Cipher(keySize: Int) extends Module {
         valid(i) := valid(i - 1)
     }
 
-    lastSubByte.io.in       := pipeline(Nr - 1)
-    lastShiftRows.io.in     := lastSubByte.io.out
-    lastAddRoundKey.io.in   := lastShiftRows.io.out
+    lastInvShiftRows.io.in        := pipeline(Nr - 1)
+    lastInvSubByte.io.in          := lastInvShiftRows.io.out
+    lastAddRoundKey.io.in         := lastInvSubByte.io.out
     // TODO - Input roundKey to lastAddRoundKey module
 
     // Convert 4x4 state into 128 bit wire for output

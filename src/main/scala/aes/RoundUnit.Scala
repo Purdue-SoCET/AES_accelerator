@@ -1,4 +1,4 @@
-package AES
+package aes
 
 import chisel3._
 
