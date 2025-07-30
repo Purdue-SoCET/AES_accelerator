@@ -30,7 +30,7 @@ class KeyExpansion(keySize: Int) extends Module {
 
     // =-=-= Init Regs =-=-= 
       val stageRegs = Reg(Vec(Nr + 1, UInt((keySize max 128).W)))        //  Holds each round key as it flows through pipeline
-      val validRegs = RegInit(VecInit(Seq.fill(Nr + 1)(false.B)))      //  Tracks which stages hold valid data
+      //val validRegs = RegInit(VecInit(Seq.fill(Nr + 1)(false.B)))      //  Tracks which stages hold valid data
       // val roundCounter = RegInit(0.U(log2Ceil(Nr + 2).W))           //  Holds initial input key
       // val keyInReg = Reg(UInt(keySize.W))                           //  Tracks how many keys emitted (optional)
       // val wPrev = Reg(Vec(4, UInt(32.W)))                           //  Tracks last 4 words for key generation
@@ -43,10 +43,10 @@ class KeyExpansion(keySize: Int) extends Module {
 
       when(io.keyIn.fire) {
         stageRegs(0) := io.keyIn.bits
-        validRegs(0) := true.B
+        //validRegs(0) := true.B
       }
 
-      io.keyIn.ready := !validRegs(0)                                 // Accept new input only if pipeline is empty
+      //io.keyIn.ready := !validRegs(0)                                 // Accept new input only if pipeline is empty
 
     // === Key Generator Pipeline ===
       for (i <- 1 until totalStages) {
@@ -55,7 +55,7 @@ class KeyExpansion(keySize: Int) extends Module {
         keyGen.io.round   := i.U                        // round number input
 
         stageRegs(i) := keyGen.io.nextKey               // Output connected to stage reg (KEYGEN FUNCT)
-        validRegs(i) := validRegs(i - 1)                // New reg gets loaded (valid)
+        //validRegs(i) := validRegs(i - 1)                // New reg gets loaded (valid)
 
         // io.roundKeyOut := stageRegs(i)                  // Output RoundKey  (KEYEXPANSION FUCNT)
         // valid(i-1) := false.B                           // Empty the Register
@@ -67,7 +67,7 @@ class KeyExpansion(keySize: Int) extends Module {
       // val outputVec = VecInit(stageRegs.toSeq)
       // val validVec  = VecInit(validRegs.toSeq)
       val outputVec = VecInit(stageRegs.toSeq.map(x => x))
-      val validVec  = VecInit(validRegs.toSeq.map(x => x))
+      //val validVec  = VecInit(validRegs.toSeq.map(x => x))
 
       io.roundKeyOut.valid := validVec.reduce(_ || _)
       io.roundKeyOut.bits  := Mux1H(validVec, outputVec)
@@ -75,13 +75,14 @@ class KeyExpansion(keySize: Int) extends Module {
     // === Clear stage after emission ===
       when(io.roundKeyOut.fire) {
         for (i <- 0 until totalStages) {
-          when(validRegs(i) && outputVec(i) === io.roundKeyOut.bits) {
-            validRegs(i) := false.B
+          //when(validRegs(i) && outputVec(i) === io.roundKeyOut.bits) {
+          when(outputVec(i) === io.roundKeyOut.bits) {
+            //validRegs(i) := false.B
           }
         }
       }
 
-  io.done := validRegs(Nr)
+  //io.done := validRegs(Nr)
 }
 
   // Key Generator Helper function
