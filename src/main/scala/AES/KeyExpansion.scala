@@ -29,7 +29,7 @@ class KeyExpansion(keySize: Int) extends Module {
       
 
     // =-=-= Init Regs =-=-= 
-      val stageRegs = Reg(Vec(Nr + 1, UInt(keySize max 128.W)))        //  Holds each round key as it flows through pipeline
+      val stageRegs = Reg(Vec(Nr + 1, UInt((keySize max 128).W)))        //  Holds each round key as it flows through pipeline
       val validRegs = RegInit(VecInit(Seq.fill(Nr + 1)(false.B)))      //  Tracks which stages hold valid data
       // val roundCounter = RegInit(0.U(log2Ceil(Nr + 2).W))           //  Holds initial input key
       // val keyInReg = Reg(UInt(keySize.W))                           //  Tracks how many keys emitted (optional)
